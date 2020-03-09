@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>websocket</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      padding: 0;
+      margin: 0;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+    }
+
+    @media (max-width: 768px) {
+      .message-box {
+        width: 100%;
+        height: 100%;
+      }
+    }
+
+    @media (min-width: 768px) {
+      .message-box {
+        width: 750px;
+        margin: 0 auto;
+        height: 100%;
+        border: 1px solid #eee;
+      }
+    }
+
+    .message-box {
+      display: flex;
+      /* flex-direction: column; */
+    }
+
+    .message-box .left-box {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .message-box .user-list {
+      width: 200px;
+      border-left: 1px solid #eee;
+      height: 100%;
+      background-color: #f5f5f5c2;
+    }
+
+    .show-message {
+      background-color: #f5f5f5;
+      flex: 1;
+      padding: 20px;
+    }
+
+    .user-info {
+      height: 45px;
+      background-color: #f5f5f5;
+      border-bottom: 2px solid #eee;
+    }
+
+    .msg-input {
+      height: 60px;
+      line-height: 60px;
+      padding: 0 10px;
+
+    }
+
+    input {
+      height: 30px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      color: #333;
+    }
+
+    .btn {
+      height: 30px;
+      padding: 0 15px;
+      vertical-align: middle;
+      border: 1px solid transparent;
+      border-radius: 4px;
+    }
+
+    .btn-danger {
+      color: #fff;
+      background-color: #d9534f;
+      border-color: #d43f3a;
+    }
+
+    .btn-danger:focus,
+    .btn-danger.focus {
+      color: #fff;
+      background-color: #c9302c;
+      border-color: #761c19;
+    }
+
+    .btn-danger:hover {
+      color: #fff;
+      background-color: #c9302c;
+      border-color: #ac2925;
+    }
+
+    .btn-primary {
+      color: #fff;
+      background-color: #337ab7;
+      border-color: #337ab7;
+    }
+
+    .btn-primary:focus,
+    .btn-primary.focus {
+      color: #fff;
+      background-color: #286090;
+      border-color: #286090;
+    }
+
+    .btn-primary:hover {
+      color: #fff;
+      background-color: #286090;
+      border-color: #286090;
+    }
+
+    .login-box {
+      padding: 30px;
+    }
+
+    .tip {
+      font-size: 12px;
+      color: red;
+      margin-top: 10px;
+    }
+
+    .show-message p,
+    .user-list p {
+      line-height: 25px;
+      font-size: 14px;
+    }
+
+    .show-message .enter,
+    .show-message .leave {
+      color: #666;
+      font-size: 12px;
+    }
+
+    .show-message .message span {
+      margin-right: 15px;
+      color: #000;
+
+    }
+  </style>
+</head>
+
+<body>
+  <div class="login-box">
+    <input type="text" id="username" placeholder="请输入用户名">
+    <button class="btn btn-primary" id="login">登录</button>
+    <p class="tip"></p>
+  </div>
+  <div class="message-box" style="display: none;">
+    <div class="left-box">
+      <div class="user-info">
+      </div>
+      <div class="show-message">
+        <!-- <p class="enter">XXX</p>
+      <p class="leave">XXX</p>
+      <p class="message">XXX</p> -->
+      </div>
+      <div class="msg-input">
+        <input type="text" id="message-input">
+        <button class="btn btn-primary" id="send-btn">发送消息</button>
+        <button class="btn btn-danger" id="logout">退出</button>
+      </div>
+    </div>
+    <div class="user-list"></div>
+  </div>
+  <script>
+    let loginBtn = document.getElementById('login')
+    let logoutBtn = document.getElementById('logout')
+    let userInput = document.getElementById('username')
+    let sendBtn = document.getElementById('send-btn')
+    let messageInput = document.getElementById('message-input')
+    let loginBox = document.querySelector('.login-box')
+    let messageBox = document.querySelector('.message-box')
+    let tip = document.querySelector('.tip')
+    let userInfoBox = document.querySelector('.user-info')
+    let showMessage = document.querySelector('.show-message')
+    let userList = document.querySelector('.user-list')
+    var ws
+    // 登录
+    loginBtn.addEventListener('click', function () {
+      if (!userInput.value.trim()) {
+        tip.innerText = '空消息不能发送'
+        return
+      }
+      tip.innerText = ''
+      ws = new WebSocket("ws://localhost:3000");
+      ws.onopen = function (e) {
+        console.log('Connection to server opened');
+        ws.send(JSON.stringify({ type: 'userInfo', name: userInput.value }))
+        userInput.value = ''
+        loginBox.style.display = 'none'
+        messageBox.style.display = 'flex'
+      }
+      ws.onclose = function (e) {
+        // console.log(e.data)
+        console.log('close');
+      }
+      ws.onmessage = function (e) {
+        var message = JSON.parse(e.data)
+        if (message.type === 'userlist') {
+          console.log('list', message.data)
+          let str = ''
+          message.data.forEach(item => {
+            var dom = '<p>' + item.username + '—' + item.date + '</p>'
+            str = str + dom
+          })
+          console.log(str)
+          userList.innerHTML = str
+
+        } else {
+          createMsgEle(showMessage, message)
+        }
+      }
+      ws.onerror = function (e) {
+        console.log('error')
+      }
+    })
+    // 消息发送
+    sendBtn.addEventListener('click', function () {
+      if (!messageInput.value.trim()) {
+        return
+      }
+      ws.send(JSON.stringify({ type: 'message', data: messageInput.value }));
+      messageInput.value = ''
+    })
+    // 登出
+    logoutBtn.addEventListener('click', function () {
+      loginBox.style.display = 'block'
+      messageBox.style.display = 'none'
+      showMessage.innerHTML = ''
+      ws.close()
+    })
+    function createMsgEle(dom, data) {
+      var p = document.createElement('p')
+      console.log('info', data)
+      p.className = data.type === 'connect' ? 'enter' : data.type === 'close' ? 'leave' : 'message'
+      if (data.type === 'message') {
+        // var span = document.createElement('span')
+        // span.innerText = data.user + ':'
+        p.innerHTML = "<span>" + data.user + ":</span>" + data.data
+      } else {
+        p.innerText = data.data
+      }
+      dom.appendChild(p)
+    }
+
+  </script>
+</body>
+
+</html>
